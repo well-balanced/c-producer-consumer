@@ -7,6 +7,10 @@
 #define NUM_THREAD 2
 #define BUFFER_SIZE 100
 
+/**
+ * empty, full 상태를 갖는 세마포어 생성
+ * mutex를 활용해 타 쓰레드가 자원에 접근하는 것을 막아주면서 동기화 보장
+ */
 sem_t empty;
 sem_t full;
 pthread_mutex_t mutex;
@@ -19,6 +23,9 @@ void *producer(void *pno)
     int random;
     while (1)
     {
+        /*
+         * empty 상태를 기다렸다가 mutex로 묶어주고 난수를 전역 버퍼에 넣고 full 상태로 넘겨준다
+         */
         random = rand();
         sem_wait(&empty);
         pthread_mutex_lock(&mutex);
@@ -36,13 +43,15 @@ void *consumer(void *cno)
 {
     while (1)
     {
+        /*
+         * full 상태를 기다렸다가 mutex로 묶어주고 난수를 전역 버퍼에서 가져와 wait 상태로 넘겨준다
+         */
         sem_wait(&full);
         pthread_mutex_lock(&mutex);
         int item = buffer[out];
         printf("consumer: %d 소비, 버퍼 %d번 자리\n", item, out);
         out %= BUFFER_SIZE;
         out++;
-        int n = buffer[out];
         pthread_mutex_unlock(&mutex);
         sem_post(&empty);
         usleep(2000000);
@@ -51,7 +60,6 @@ void *consumer(void *cno)
 
 int main()
 {
-    printf("hello world\n");
     int num = 0;
     int rc = 0;
     int i = 0;
@@ -62,6 +70,9 @@ int main()
 
     for (i = 0; i < NUM_THREAD; i++)
     {
+        /*
+         * 해당 쓰레드의 종료까지 기다린다
+         */
         rc = pthread_join(thread[i], (void **)&result[i]);
         if (rc != 0)
         {
@@ -70,6 +81,9 @@ int main()
         }
     }
 
+    /*
+     * mutex, sem 삭제
+     */
     pthread_mutex_destroy(&mutex);
     sem_destroy(&empty);
     sem_destroy(&full);
